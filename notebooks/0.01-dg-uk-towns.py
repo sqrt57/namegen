@@ -41,6 +41,9 @@ df['County'].drop_duplicates().sort_values()
 df['Town'].str.lower().drop_duplicates().sort_values()
 
 # %%
+pd.concat([df['Town'], df['County']]).str.lower().drop_duplicates().sort_values().to_list()
+
+# %%
 Counter(''.join(df['Town'].str.lower().drop_duplicates().sort_values()))
 
 # %%

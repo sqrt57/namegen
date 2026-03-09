@@ -2,8 +2,9 @@
 
 ## Plan
 1. Get several names datasets
-2. Simple 
-3. ResNet model
+2. Simple bigrams model
+3. Simple one-layer NN euqivalent to birgrams model
+4. MLP
 
 ## References
 * [Andrej Karpathy: A Recipe for Training Neural Networks](https://karpathy.github.io/2019/04/25/recipe/)

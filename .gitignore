@@ -20,4 +20,5 @@ wheels/
 
 # Data folders
 /data/external/
+/data/interim/
 /data/processed/

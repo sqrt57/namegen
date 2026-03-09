@@ -1,0 +1,23 @@
+# Python-generated files
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+
+# Virtual environments
+.venv
+
+# Jupyter files
+.ipynb_checkpoints
+.jupyter_ystore.db
+
+# We use jupytext to version control notebooks as .py files, so we ignore the .ipynb files
+/notebooks/*.ipynb
+
+/.github/copilot-instructions.md
+
+# Data folders
+/data/external/
+/data/processed/

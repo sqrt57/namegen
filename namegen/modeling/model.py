@@ -1,26 +1,30 @@
 import torch
 from torch import nn
-import torch
+import torch.nn.functional as F
 
-from namegen.dataset import Dataset
+__all__ = [
+    'BigramsModel',
+    'OneLayerBigramModel',
+]
 
 class BigramsModel(nn.Module):
     def __init__(self, N: torch.Tensor, prior: int | float = 0):
         super().__init__()
+        self.nalphabet = N.shape[0]
         self.N = N.clone().detach()
         N = N.to(dtype=torch.float32) + prior
-        self.p = (N / N.sum(1, keepdim=True)).log()
+        self.p = torch.nan_to_num((N / N.sum(1, keepdim=True)).log(), torch.nan, neginf=-1e6)
 
-    def forward(self, x):
-        if torch.is_tensor(x):
-            x = x.squeeze()
-        return self.p[x]
+    def forward(self, x: torch.Tensor):
+        return x.reshape(-1, self.nalphabet) @ self.p
 
-def train_bigram_model(dataset: Dataset, prior : int | float = 0):
-    features, labels = dataset.get_features_and_labels(context_size=1)
-    features = features.squeeze()
-    N = torch.zeros((dataset.nalphabet, dataset.nalphabet), dtype=torch.int64)
-    for i in range(features.shape[0]):
-        N[features[i], labels[i]] += 1
-    model = BigramsModel(N, prior)
-    return model
+
+class OneLayerBigramModel(nn.Module):
+    def __init__(self, *, nalphabet: int, context_size: int):
+        super().__init__()
+        assert context_size == 1
+        self.nalphabet = nalphabet
+        self.w = nn.Parameter(torch.ones((nalphabet,nalphabet)) / nalphabet)
+    
+    def forward(self, x: torch.Tensor):
+        return x.reshape(-1, self.nalphabet) @ self.w

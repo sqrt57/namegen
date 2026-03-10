@@ -12,11 +12,13 @@ class Generator:
         self.ctoi = {ch: i for i, ch in enumerate(self.alphabet)}
         self.model = model
 
-    def generate(self, start_symbol='_'):
+    def generate(self, *, start_symbol='_', T=1):
         current = self.ctoi[start_symbol]
         result = []
         while True:
-            probabilities = F.softmax(self.model(current))
+            in_p = torch.zeros((1, self.nalphabet))
+            in_p[0, current] = 1.
+            probabilities = F.softmax(self.model(in_p) / T, 1)[0]
             current = int(torch.multinomial(probabilities, 1).item())
             current_char = self.alphabet[current]
             if current_char == '_':
@@ -26,4 +28,6 @@ class Generator:
 def calculate_loss(dataset: Dataset, model: nn.Module):
     loss_fn = nn.CrossEntropyLoss()
     features, labels = dataset.get_features_and_labels(1)
-    return loss_fn(model(features), labels)
+    features = F.one_hot(features, num_classes=dataset.nalphabet).to(dtype=torch.float32)
+    pred = model(features)
+    return loss_fn(pred, labels)

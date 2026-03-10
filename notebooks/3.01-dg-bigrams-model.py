@@ -26,10 +26,12 @@ import pandas as pd
 import matplotlib.pyplot as plt
 
 import torch
+from torch import nn
 import torch.nn.functional as F
 
 from namegen.dataset import uk_towns_and_counties
-from namegen.modeling.model import BigramsModel, train_bigram_model
+from namegen.modeling.model import BigramsModel
+from namegen.modeling.train import train_bigram_model
 from namegen.modeling.predict import Generator, calculate_loss
 
 
@@ -75,10 +77,14 @@ torch.random.manual_seed(998190804)
 
 # %%
 torch.random.manual_seed(998190804)
+[generator.generate(T=1.1) for i in range(20)]
+
+# %%
+torch.random.manual_seed(998190804)
 [random_generator.generate() for i in range(20)]
 
 # %%
-print(model(features).shape)
+print(model(F.one_hot(features, num_classes=dataset.nalphabet).to(dtype=torch.float32)).shape)
 print(calculate_loss(dataset, model_00))
 print(calculate_loss(dataset, model_05))
 print(calculate_loss(dataset, model_10))

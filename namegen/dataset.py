@@ -1,4 +1,4 @@
-from collections import Counter
+from collections import Counter, namedtuple
 from functools import cache
 from pathlib import Path
 
@@ -31,6 +31,9 @@ def get_alphabet(strings: list[str]) -> str:
 def get_char_to_index(alphabet: str) -> dict[str, int]:
     return {char: i for i, char in enumerate(alphabet)}
 
+
+Batch = namedtuple("Batch", "features, labels")
+    
 class Dataset:
     def __init__(self, strings: list[str], alphabet: str | None = None):
         self.strings = list(strings)
@@ -65,7 +68,21 @@ class Dataset:
             labels_batch = torch.cat([line, postfix])
             features.append(features_batch)
             labels.append(labels_batch)
-        return torch.cat(features), torch.cat(labels)
+        return Batch(features=torch.cat(features), labels=torch.cat(labels))
+    
+    def get_features_and_labels_batches(self, context_size: int, batch_size, shuffle=False):
+        features, labels = self.get_features_and_labels(context_size)
+        nitems = features.shape[0]
+
+        if shuffle:
+            indices = torch.randperm(nitems)
+        else:
+            indices = torch.arange(nitems)
+
+        for i in range(0, nitems, batch_size):
+            batch_indices = indices[i:i+batch_size]
+            yield Batch(features=features[batch_indices], labels=labels[batch_indices])
+
 
 @cache
 def uk_towns_and_counties(data_path: str) -> Dataset:

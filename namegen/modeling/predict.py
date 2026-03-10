@@ -12,7 +12,9 @@ class Generator:
         self.ctoi = {ch: i for i, ch in enumerate(self.alphabet)}
         self.model = model
 
-    def generate(self, *, start_symbol='_', T=1):
+    def generate(self, *, start_symbol='_', T=1, seed=None):
+        if (seed is not None):
+            torch.manual_seed(seed)
         current = self.ctoi[start_symbol]
         result = []
         while True:

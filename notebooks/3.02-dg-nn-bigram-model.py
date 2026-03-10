@@ -39,7 +39,7 @@ from namegen.modeling.predict import Generator, calculate_loss
 dataset = uk_towns_and_counties('../data')
 
 # %%
-baseline_model = train_bigram_model(dataset, 0.5)
+baseline_model = train_bigram_model(dataset, 0.1)
 random_model = BigramsModel(torch.ones((dataset.nalphabet, dataset.nalphabet)))
 
 # %%
@@ -57,6 +57,11 @@ trainer = Trainer()
 results = []
 for h in hyper:
     results.append(trainer.run_scenario(h))
+
+# %%
+for r in results:
+    npars = sum(p.numel() for p in r.model.parameters())
+    print(f"model={r.hyper.model.__name__} {npars=}")
 
 # %%
 fig, ((ax1, ax2), (ax3, ax4)) = plt.subplots(2, 2, figsize=(10,  8))
@@ -99,24 +104,30 @@ fig.tight_layout()
 plt.plot()
 
 # %%
-torch.random.manual_seed(998190804)
-baseline_generator = Generator(dataset, baseline_model)
-[baseline_generator.generate() for i in range(20)]
+df = pd.DataFrame()
+seeds = [
+    656644231,	600012153,	909928419,	186362313,	579571659,
+    571489154,	798841376,	649431853,	69803936,	351537320,
+    438382231,	157521886,	785863303,	534713611,	536761809,
+    754169915,	62491729,	951896890,	445648194,	804560408,
+]
 
-# %%
-torch.random.manual_seed(998190804)
-generator = Generator(dataset, results[3].model)
-[generator.generate() for i in range(20)]
-
-# %%
-torch.random.manual_seed(998190804)
 random_generator = Generator(dataset, random_model)
-[random_generator.generate() for i in range(20)]
+df['random'] = [random_generator.generate(seed=seed) for seed in seeds]
+
+for r in results:
+    generator = Generator(dataset, r.model)
+    df[r.hyper.name] = [generator.generate(seed=seed) for seed in seeds]
+
+baseline_generator = Generator(dataset, baseline_model)
+df['baseline'] = [baseline_generator.generate(seed=seed) for seed in seeds]
+
+df
 
 # %%
-print(calculate_loss(dataset, baseline_model))
+print(calculate_loss(dataset, random_model))
 for r in results:
     print(calculate_loss(dataset, r.model))
-print(calculate_loss(dataset, random_model))
+print(calculate_loss(dataset, baseline_model))
 
 # %%

@@ -2,6 +2,7 @@ from collections import Counter
 from pathlib import Path
 
 import pandas as pd
+import torch
 
 def read_uk_towns(data_path):
     return pd.read_csv(Path(data_path) / 'raw' / 'uk-towns.txt', skipinitialspace=True)
@@ -34,3 +35,14 @@ def get_alphabet(strings: list[str]) -> str:
 
 def get_char_to_index(alphabet: str) -> dict[str, int]:
     return {char: i for i, char in enumerate(alphabet)}
+
+def get_features_and_labels(alphabet, dataset: list[tuple[str, str]]):
+    ctoi = get_char_to_index(alphabet)
+    X = []
+    Y = []
+    for context, target in dataset:
+        x = [ctoi[c] for c in context]
+        y = ctoi[target]
+        X.append(x)
+        Y.append(y)
+    return torch.tensor(X), torch.tensor(Y)

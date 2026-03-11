@@ -28,11 +28,11 @@ def train_bigram_model(dataset: Dataset, prior : int | float = 0):
     N = torch.zeros((dataset.nalphabet, dataset.nalphabet), dtype=torch.int64)
     for i in range(features.shape[0]):
         N[features[i], labels[i]] += 1
-    model = BigramsModel(N, prior)
+    model = BigramsModel(N, prior, nalphabet=dataset.nalphabet)
     return model
 
-Hyper = collections.namedtuple('Hyper', 'name dataset context_size model batch_size nepochs optimizer lr optimizer_kwargs shuffle seed',
-                               defaults=(torch.optim.Adam, 3e-4, {}, True, None))
+Hyper = collections.namedtuple('Hyper', 'name dataset context_size model batch_size nepochs model_kwargs optimizer lr optimizer_kwargs shuffle seed',
+                               defaults=({}, torch.optim.Adam, 3e-4, {}, True, None))
 Result = collections.namedtuple('Result', 'hyper model epochs train_metrics')
 
 
@@ -86,7 +86,7 @@ class Trainer:
             torch.seed()
         else:
             torch.manual_seed(hyper.seed)
-        model = hyper.model(nalphabet=hyper.dataset.nalphabet, context_size=hyper.context_size)
+        model = hyper.model(nalphabet=hyper.dataset.nalphabet, context_size=hyper.context_size, **hyper.model_kwargs)
         optimizer = hyper.optimizer(model.parameters(), lr=hyper.lr, **hyper.optimizer_kwargs)
 
         epochs = []

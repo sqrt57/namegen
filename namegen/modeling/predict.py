@@ -12,24 +12,29 @@ class Generator:
         self.ctoi = {ch: i for i, ch in enumerate(self.alphabet)}
         self.model = model
 
-    def generate(self, *, start_symbol='_', T=1, seed=None):
+    def generate(self, *, T=1, seed=None):
+        self.model.eval()
+        context_size: int = self.model.context_size
         if (seed is not None):
             torch.manual_seed(seed)
-        current = self.ctoi[start_symbol]
+        current = [self.ctoi['_']] * context_size 
         result = []
         while True:
-            in_p = torch.zeros((1, self.nalphabet))
-            in_p[0, current] = 1.
+            in_p = torch.zeros((1, context_size, self.nalphabet))
+            for i in range(context_size):
+                in_p[0, i, current[i]] = 1.
             probabilities = F.softmax(self.model(in_p) / T, 1)[0]
-            current = int(torch.multinomial(probabilities, 1).item())
-            current_char = self.alphabet[current]
-            if current_char == '_':
+            next = torch.multinomial(probabilities, 1).item()
+            current = current[1:] + [next]
+            next_char = self.alphabet[next]
+            if next_char == '_':
                 return ''.join(result)
-            result.append(current_char)
+            result.append(next_char)
 
 def calculate_loss(dataset: Dataset, model: nn.Module):
+    model.eval()
     loss_fn = nn.CrossEntropyLoss()
-    features, labels = dataset.get_features_and_labels(1)
+    features, labels = dataset.get_features_and_labels(model.context_size)
     features = F.one_hot(features, num_classes=dataset.nalphabet).to(dtype=torch.float32)
     pred = model(features)
     return loss_fn(pred, labels)

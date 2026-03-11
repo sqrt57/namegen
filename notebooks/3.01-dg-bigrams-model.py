@@ -15,6 +15,8 @@
 # %%
 import sys
 
+sys.path.append("..")import sys
+
 sys.path.append("..")
 
 # %%
@@ -32,11 +34,25 @@ import torch.nn.functional as F
 from namegen.dataset import uk_towns_and_counties
 from namegen.modeling.model import BigramsModel
 from namegen.modeling.train import train_bigram_model
+from namegen.modeling.predict import Generator, calculate_lossimport os
+from pathlib import Path
+
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+
+import torch
+from torch import nn
+import torch.nn.functional as F
+
+from namegen.dataset import uk_towns_and_counties
+from namegen.modeling.model import BigramsModel
+from namegen.modeling.train import train_bigram_model
 from namegen.modeling.predict import Generator, calculate_loss
 
 
 # %%
-dataset = uk_towns_and_counties('../data')
+dataset = uk_towns_and_counties('../data')dataset = uk_towns_and_counties('../data')
 
 # %%
 features, labels = dataset.get_features_and_labels(1)
@@ -73,6 +89,7 @@ ax.axis('off');
 
 # %%
 torch.random.manual_seed(998190804)
+[generator.generate() for i in range(20)]torch.random.manual_seed(998190804)
 [generator.generate() for i in range(20)]
 
 # %%

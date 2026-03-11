@@ -30,7 +30,7 @@ from torch import nn
 import torch.nn.functional as F
 
 from namegen.dataset import uk_towns_and_counties
-from namegen.modeling.model import BigramsModel, OneLayerBigramModel
+from namegen.modeling.model import BigramsModel, OneLayerBigramModel, ProbabilisticEmbeddingModel
 from namegen.modeling.train import train_bigram_model, Trainer, Hyper, Result
 from namegen.modeling.predict import Generator, calculate_loss
 
@@ -39,16 +39,11 @@ from namegen.modeling.predict import Generator, calculate_loss
 dataset = uk_towns_and_counties('../data')
 
 # %%
-baseline_model = train_bigram_model(dataset, 0.1)
-random_model = BigramsModel(torch.ones((dataset.nalphabet, dataset.nalphabet)), nalphabet=dataset.nalphabet)
-
-# %%
 optimizer = torch.optim.AdamW
 hyper = [
-    Hyper(name='3 epochs', dataset=dataset, context_size=1, model=OneLayerBigramModel, batch_size=100, nepochs=3, lr=1e-3, optimizer=optimizer),
-    Hyper(name='10 epochs', dataset=dataset, context_size=1, model=OneLayerBigramModel, batch_size=100, nepochs=10, lr=1e-3, optimizer=optimizer),
-    Hyper(name='30 epochs', dataset=dataset, context_size=1, model=OneLayerBigramModel, batch_size=100, nepochs=30, lr=1e-3, optimizer=optimizer),
-    Hyper(name='100 epochs', dataset=dataset, context_size=1, model=OneLayerBigramModel, batch_size=100, nepochs=100, lr=1e-3, optimizer=optimizer),
+    Hyper(name='baseline', dataset=dataset, context_size=1, model=OneLayerBigramModel, batch_size=100, nepochs=200, lr=1e-3, optimizer=optimizer),
+    Hyper(name='embedding', dataset=dataset, context_size=3, batch_size=100, nepochs=200, lr=1e-3, optimizer=optimizer,
+         model=ProbabilisticEmbeddingModel, model_kwargs={ 'nembedding': 2, 'nhidden': 50 }),
 ]
 
 # %%
@@ -114,15 +109,9 @@ seeds = [
 
 df = pd.DataFrame()
 
-random_generator = Generator(dataset, random_model)
-df['random'] = [random_generator.generate(seed=seed) for seed in seeds]
-
 for r in results:
     generator = Generator(dataset, r.model)
     df[r.hyper.name] = [generator.generate(seed=seed) for seed in seeds]
-
-baseline_generator = Generator(dataset, baseline_model)
-df['baseline'] = [baseline_generator.generate(seed=seed) for seed in seeds]
 
 df
 
@@ -147,7 +136,7 @@ for T in [0.1, 0.5, 0.9, 1.0, 1.1, 1.2, 1.5]:
 df
 
 # %%
-print(calculate_loss(dataset, random_model))
 for r in results:
     print(calculate_loss(dataset, r.model))
-print(calculate_loss(dataset, baseline_model))
+
+# %%

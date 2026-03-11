@@ -8,7 +8,7 @@ import torch.nn.functional as F
 from tqdm import tqdm
 
 
-from namegen.dataset import Dataset
+from namegen.dataset import Dataset, get_features_and_labels_batches
 from namegen.modeling.model import BigramsModel
 
 __all__ = [
@@ -31,8 +31,8 @@ def train_bigram_model(dataset: Dataset, prior : int | float = 0):
     model = BigramsModel(N, prior, nalphabet=dataset.nalphabet)
     return model
 
-Hyper = collections.namedtuple('Hyper', 'name dataset context_size model batch_size nepochs model_kwargs optimizer lr optimizer_kwargs shuffle seed',
-                               defaults=({}, torch.optim.Adam, 3e-4, {}, True, None))
+Hyper = collections.namedtuple('Hyper', 'name dataset context_size model batch_size nepochs model_kwargs optimizer lr optimizer_kwargs shuffle seed device',
+                               defaults=({}, torch.optim.Adam, 3e-4, {}, True, None, "cpu"))
 Result = collections.namedtuple('Result', 'hyper model epochs train_metrics')
 
 
@@ -86,8 +86,9 @@ class Trainer:
             torch.seed()
         else:
             torch.manual_seed(hyper.seed)
-        model = hyper.model(nalphabet=hyper.dataset.nalphabet, context_size=hyper.context_size, **hyper.model_kwargs)
+        model = hyper.model(nalphabet=hyper.dataset.nalphabet, context_size=hyper.context_size, **hyper.model_kwargs).to(hyper.device)
         optimizer = hyper.optimizer(model.parameters(), lr=hyper.lr, **hyper.optimizer_kwargs)
+        total_chunk = hyper.dataset.get_features_and_labels(hyper.context_size, device=hyper.device)
 
         epochs = []
         train_metrics = { metric.name(): [] for metric in self.metrics }
@@ -115,23 +116,20 @@ class Trainer:
 
             if (train):
                 train_metric_chunks = { metric.name(): [] for metric in self.metrics }
-                for chunk in hyper.dataset.get_features_and_labels_batches(hyper.context_size, batch_size=hyper.batch_size, shuffle=hyper.shuffle):
+                for chunk in get_features_and_labels_batches(total_chunk, batch_size=hyper.batch_size, shuffle=hyper.shuffle, device=hyper.device):
                     pred, loss = batch(chunk.features, chunk.labels)
                     for metric in self.metrics:
                         train_metric_chunks[metric.name()].append(metric.batch(model, chunk.features, chunk.labels, pred, loss.item()))
                 for metric in self.metrics:
                     train_metrics[metric.name()].append(metric.summarize(train_metric_chunks[metric.name()]))
             else:
-                chunk = hyper.dataset.get_features_and_labels(hyper.context_size)
-                pred, loss = testbatch(model, chunk.features, chunk.labels)
+                pred, loss = testbatch(model, total_chunk.features, total_chunk.labels)
                 for metric in self.metrics:
-                    train_metrics[metric.name()].append(metric.summarize([metric.batch(model, chunk.features, chunk.labels, pred, loss.item())]))
-
-
+                    train_metrics[metric.name()].append(metric.summarize([metric.batch(model, total_chunk.features, total_chunk.labels, pred, loss.item())]))
         
         run_epoch(0, train=False)
 
         for epoch in tqdm(range(hyper.nepochs), desc="Epochs"):
             run_epoch(epoch + 1, train=True)
 
-        return Result(hyper=hyper, model=model, epochs=epochs, train_metrics=train_metrics)
+        return Result(hyper=hyper, model=model.to("cpu"), epochs=epochs, train_metrics=train_metrics)

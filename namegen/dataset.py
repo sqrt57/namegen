@@ -57,7 +57,7 @@ class Dataset:
                 dataset.append((context, target))
         return dataset
     
-    def get_features_and_labels(self, context_size: int):
+    def get_features_and_labels(self, context_size: int, device="cpu"):
         features = []
         labels = []
         prefix = torch.ones(context_size, dtype=torch.int) * self.ctoi['_']
@@ -66,23 +66,21 @@ class Dataset:
             line = torch.tensor([self.ctoi[c] for c in s])
             features_batch = torch.cat([prefix, line]).unfold(0, context_size, 1)
             labels_batch = torch.cat([line, postfix])
-            features.append(features_batch)
-            labels.append(labels_batch)
+            features.append(features_batch.to(device))
+            labels.append(labels_batch.to(device))
         return Batch(features=torch.cat(features), labels=torch.cat(labels))
     
-    def get_features_and_labels_batches(self, context_size: int, batch_size, shuffle=False):
-        features, labels = self.get_features_and_labels(context_size)
-        nitems = features.shape[0]
 
-        if shuffle:
-            indices = torch.randperm(nitems)
-        else:
-            indices = torch.arange(nitems)
+def get_features_and_labels_batches(batch: Batch, batch_size, shuffle=False, device="cpu"):
+    nitems = batch.features.shape[0]
+    if shuffle:
+        indices = torch.randperm(nitems, device=device)
+    else:
+        indices = torch.arange(nitems, device=device)
 
-        for i in range(0, nitems, batch_size):
-            batch_indices = indices[i:i+batch_size]
-            yield Batch(features=features[batch_indices], labels=labels[batch_indices])
-
+    for i in range(0, nitems, batch_size):
+        batch_indices = indices[i:i+batch_size]
+        yield Batch(features=batch.features[batch_indices], labels=batch.labels[batch_indices])
 
 @cache
 def uk_towns_and_counties(data_path: str) -> Dataset:

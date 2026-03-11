@@ -28,6 +28,7 @@ import matplotlib.pyplot as plt
 import torch
 from torch import nn
 import torch.nn.functional as F
+from torch.profiler import profile, ProfilerActivity, record_function
 
 from namegen.dataset import uk_towns_and_counties
 from namegen.modeling.model import BigramsModel, OneLayerBigramModel, ProbabilisticEmbeddingModel
@@ -36,14 +37,25 @@ from namegen.modeling.predict import Generator, calculate_loss
 
 
 # %%
+device = torch.accelerator.current_accelerator().type
+# device = "cpu"
+print(f"Using {device} device")
+
+# %%
 dataset = uk_towns_and_counties('../data')
 
 # %%
 optimizer = torch.optim.AdamW
+seed = 489044167
 hyper = [
-    Hyper(name='baseline', dataset=dataset, context_size=1, model=OneLayerBigramModel, batch_size=100, nepochs=200, lr=1e-3, optimizer=optimizer),
-    Hyper(name='embedding', dataset=dataset, context_size=3, batch_size=100, nepochs=200, lr=1e-3, optimizer=optimizer,
-         model=ProbabilisticEmbeddingModel, model_kwargs={ 'nembedding': 2, 'nhidden': 50 }),
+    Hyper(name='baseline', dataset=dataset, context_size=1, batch_size=100, nepochs=200, lr=1e-3, optimizer=optimizer, seed=seed,
+         model=OneLayerBigramModel),
+    Hyper(name='embedding', dataset=dataset, context_size=5, batch_size=100, nepochs=200, lr=1e-3, optimizer=optimizer, seed=seed,
+         model=ProbabilisticEmbeddingModel, model_kwargs={ 'nembedding': 4, 'nhidden': 100 }),
+    Hyper(name='embedding', dataset=dataset, context_size=8, batch_size=100, nepochs=200, lr=1e-3, optimizer=optimizer, seed=seed,
+         model=ProbabilisticEmbeddingModel, model_kwargs={ 'nembedding': 8, 'nhidden': 200 }),
+    # Hyper(name='embedding CUDA', dataset=dataset, context_size=5, batch_size=100, nepochs=20, lr=1e-3, optimizer=optimizer, seed=seed,
+    #      model=ProbabilisticEmbeddingModel, model_kwargs={ 'nembedding': 4, 'nhidden': 100 }, device=device),
 ]
 
 # %%
@@ -140,3 +152,16 @@ for r in results:
     print(calculate_loss(dataset, r.model))
 
 # %%
+all_data = dataset.get_features_and_labels(context_size=8, device=device)
+features_batch_one_hot = F.one_hot(all_data.features, num_classes=dataset.nalphabet).to(dtype=torch.float32)
+
+# %%
+model = results[-1].model.to(device=device)
+
+# %%
+with profile(activities=[ProfilerActivity.CPU, ProfilerActivity.CUDA], record_shapes=True) as prof:
+    with record_function("model_inference"):
+        model(features_batch_one_hot)
+
+# %%
+print(prof.key_averages().table(sort_by="cpu_time_total", row_limit=10))

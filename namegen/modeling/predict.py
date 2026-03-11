@@ -4,37 +4,31 @@ import torch.nn.functional as F
 
 from namegen.dataset import Dataset
 
-class Generator:
-    def __init__(self, dataset: Dataset, model: nn.Module):
-        self.dataset = dataset
-        self.alphabet = dataset.alphabet
-        self.nalphabet = len(self.alphabet)
-        self.ctoi = {ch: i for i, ch in enumerate(self.alphabet)}
-        self.model = model
+def generate(dataset: Dataset, model: nn.Module, N=20, T=1, max_len=100):
+    model.eval()
+    context_size: int = model.context_size()
+    x = torch.zeros(N, 1, dtype=torch.int64)
+    for i in range(max_len):
+        x_win = x[:, -context_size:] if x.shape[1] >= context_size else x
+        logits = model(x_win)
+        logits = logits[:, -1, :]
+        probabilities = F.softmax(logits / T, dim=1)
+        next = torch.multinomial(probabilities, 1)
+        x = torch.cat((x, next), dim=1)
+        if (x[:,1:] == 0).any(dim=1).all(dim=0).item():
+            break
+    result = []
+    for n in range(N):
+        row = x[n, 1:].tolist()
+        if 0 in row:
+            row = row[:row.index(0)]
+        word = ''.join([dataset.itoc[i] for i in row])
+        result.append(word)
+    return result
 
-    def generate(self, *, T=1, seed=None):
-        self.model.eval()
-        context_size: int = self.model.context_size
-        if (seed is not None):
-            torch.manual_seed(seed)
-        current = [self.ctoi['_']] * context_size 
-        result = []
-        while True:
-            in_p = torch.zeros((1, context_size, self.nalphabet))
-            for i in range(context_size):
-                in_p[0, i, current[i]] = 1.
-            probabilities = F.softmax(self.model(in_p) / T, 1)[0]
-            next = torch.multinomial(probabilities, 1).item()
-            current = current[1:] + [next]
-            next_char = self.alphabet[next]
-            if next_char == '_':
-                return ''.join(result)
-            result.append(next_char)
 
 def calculate_loss(dataset: Dataset, model: nn.Module):
     model.eval()
-    loss_fn = nn.CrossEntropyLoss()
-    features, labels = dataset.get_features_and_labels(model.context_size)
-    features = F.one_hot(features, num_classes=dataset.nalphabet).to(dtype=torch.float32)
-    pred = model(features)
-    return loss_fn(pred, labels)
+    loss_fn = nn.CrossEntropyLoss(ignore_index=-1)
+    pred = model(dataset.features)
+    return loss_fn(pred.flatten(0, 1), dataset.labels.flatten(0, 1))

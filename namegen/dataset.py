@@ -32,55 +32,48 @@ def get_char_to_index(alphabet: str) -> dict[str, int]:
     return {char: i for i, char in enumerate(alphabet)}
 
 
-Batch = namedtuple("Batch", "features, labels")
+Batch = namedtuple("Batch", "features labels")
     
 class Dataset:
     def __init__(self, strings: list[str], alphabet: str | None = None):
         self.strings = list(strings)
         self.alphabet = get_alphabet(strings)
+        self.max_word_length = max(len(s) for s in strings)
         if alphabet is not None:
             self.alphabet = alphabet + ''.join([c for c in self.alphabet if c not in alphabet])
         if '_' not in self.alphabet:
             self.alphabet = '_' + self.alphabet
         self.nalphabet = len(self.alphabet)
-        self.ctoi = get_char_to_index(self.alphabet)
+        self.ctoi = {char: i for i, char in enumerate(self.alphabet)}
+        self.itoc = {i: char for i, char in enumerate(self.alphabet)}
+        self.features, self.labels = self.get_features_and_labels()
     
-    def build_dataset(self, context_size: int) -> list[tuple[str, str]]:
-        dataset = []
-        prefix = '_' * context_size
-        postfix = '_'
-        for s in self.strings:
-            s = prefix + s + postfix
-            for i in range(0, len(s)-context_size):
-                context = s[i:i+context_size]
-                target = s[i+context_size]
-                dataset.append((context, target))
-        return dataset
-    
-    def get_features_and_labels(self, context_size: int, device="cpu"):
+    def get_features_and_labels(self):
         features = []
         labels = []
-        prefix = torch.ones(context_size, dtype=torch.int) * self.ctoi['_']
-        postfix = torch.tensor([self.ctoi['_']])
         for s in self.strings:
-            line = torch.tensor([self.ctoi[c] for c in s])
-            features_batch = torch.cat([prefix, line]).unfold(0, context_size, 1)
-            labels_batch = torch.cat([line, postfix])
-            features.append(features_batch.to(device))
-            labels.append(labels_batch.to(device))
-        return Batch(features=torch.cat(features), labels=torch.cat(labels))
-    
+            line = torch.tensor([self.ctoi[c] for c in s], dtype=torch.int64)
+            features_line = torch.zeros(self.max_word_length + 1, dtype=torch.int64)
+            labels_line = torch.zeros(self.max_word_length + 1, dtype=torch.int64)
+            features_line[1:1+len(line)] = line
+            labels_line[:len(line)] = line
+            labels_line[len(line)+1:] = -1
+            features.append(features_line)
+            labels.append(labels_line)
+        return torch.stack(features), torch.stack(labels)
 
-def get_features_and_labels_batches(batch: Batch, batch_size, shuffle=False, device="cpu"):
-    nitems = batch.features.shape[0]
-    if shuffle:
-        indices = torch.randperm(nitems, device=device)
-    else:
-        indices = torch.arange(nitems, device=device)
 
-    for i in range(0, nitems, batch_size):
-        batch_indices = indices[i:i+batch_size]
-        yield Batch(features=batch.features[batch_indices], labels=batch.labels[batch_indices])
+class InfiniteDataLoader:
+    def __init__(self, dataset: Dataset, batch_size: int, device='cpu'):
+        self.features = dataset.features.to(device=device)
+        self.labels = dataset.labels.to(device=device)
+        self.batch_size = batch_size
+        self.ones = torch.ones(dataset.features.shape[0], device=device)
+
+    def next(self):
+        ix = torch.multinomial(self.ones, self.batch_size)
+        return self.features[ix], self.labels[ix]
+
 
 @cache
 def uk_towns_and_counties(data_path: str) -> Dataset:

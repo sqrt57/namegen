@@ -108,3 +108,19 @@ for T in [0.1, 0.5, 0.9, 1.0, 1.1, 1.2, 1.5]:
     df[name] = generate(dataset, model, T=T)
 
 df
+
+# %%
+model = results[1].model
+results[1].hyper.name
+
+# %%
+for name, p in model.named_parameters():
+    print(name, p.shape)
+
+# %%
+x = model.emb[:,0].tolist()
+y = model.emb[:,1].tolist()
+plt.scatter(x, y)
+
+for i in range(dataset.nalphabet):
+    plt.annotate(dataset.itoc[i], (x[i], y[i]))

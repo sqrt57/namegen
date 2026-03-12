@@ -30,14 +30,15 @@ def train_bigram_model(dataset: Dataset, prior : int | float = 0):
     model = BigramsModel(N, prior, nalphabet=dataset.nalphabet)
     return model
 
-Hyper = collections.namedtuple('Hyper', 'name context_size model batch_size nsteps model_kwargs optimizer lr optimizer_kwargs shuffle seed device',
-                               defaults=({}, torch.optim.Adam, 3e-4, {}, True, None, "cpu"))
+Hyper = collections.namedtuple('Hyper', 'name context_size model batch_size nsteps model_kwargs optimizer lr optimizer_kwargs shuffle seed',
+                               defaults=({}, torch.optim.Adam, 3e-4, {}, True, None))
 Result = collections.namedtuple('Result', 'hyper model steps train_metrics')
 
 class Trainer:
-    def __init__(self, dataset: Dataset):
+    def __init__(self, dataset: Dataset, device="cpu"):
         self.dataset = dataset
         self.loss_fn = nn.CrossEntropyLoss(ignore_index=-1)
+        self.device = device
 
     def run_scenario(self, hyper: Hyper):
         print(f"Running scenario {hyper.name}: model={hyper.model.__name__} seed={hyper.seed} "
@@ -46,11 +47,11 @@ class Trainer:
             torch.seed()
         else:
             torch.manual_seed(hyper.seed)
-        model = hyper.model(nalphabet=self.dataset.nalphabet, context_size=hyper.context_size, **hyper.model_kwargs).to(device=hyper.device)
+        model = hyper.model(nalphabet=self.dataset.nalphabet, context_size=hyper.context_size, **hyper.model_kwargs).to(device=self.device)
         optimizer = hyper.optimizer(model.parameters(), lr=hyper.lr, **hyper.optimizer_kwargs)
-        dataloader = InfiniteDataLoader(self.dataset, hyper.batch_size, hyper.device)
-        features = self.dataset.features.to(device=hyper.device)
-        labels = self.dataset.labels.to(device=hyper.device)
+        dataloader = InfiniteDataLoader(self.dataset, hyper.batch_size, self.device)
+        features = self.dataset.features.to(device=self.device)
+        labels = self.dataset.labels.to(device=self.device)
 
         steps = []
         train_metrics = { 'loss': [] }

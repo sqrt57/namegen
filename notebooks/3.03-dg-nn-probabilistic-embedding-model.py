@@ -52,16 +52,14 @@ hyper = [
          model=OneLayerBigramModel),
     Hyper(name='embedding 3 2 50', context_size=3, batch_size=100, nsteps=20000, lr=1e-3, optimizer=optimizer, seed=seed,
          model=ProbabilisticEmbeddingModel, model_kwargs={ 'nembedding': 2, 'nhidden': 50 }),
-    Hyper(name='embedding 3 2 50 CUDA', context_size=3, batch_size=100, nsteps=20000, lr=1e-3, optimizer=optimizer, seed=seed,
-         model=ProbabilisticEmbeddingModel, model_kwargs={ 'nembedding': 2, 'nhidden': 50 }, device=device),
     Hyper(name='embedding 5 4 100', context_size=5, batch_size=100, nsteps=20000, lr=1e-3, optimizer=optimizer, seed=seed,
          model=ProbabilisticEmbeddingModel, model_kwargs={ 'nembedding': 4, 'nhidden': 100 }),
-    Hyper(name='embedding 5 4 100 CUDA', context_size=5, batch_size=100, nsteps=20000, lr=1e-3, optimizer=optimizer, seed=seed,
-         model=ProbabilisticEmbeddingModel, model_kwargs={ 'nembedding': 4, 'nhidden': 100 }, device=device),
+    Hyper(name='embedding 8 8 200', context_size=8, batch_size=100, nsteps=40000, lr=1e-3, optimizer=optimizer, seed=seed,
+         model=ProbabilisticEmbeddingModel, model_kwargs={ 'nembedding': 8, 'nhidden': 200 }),
 ]
 
 # %%
-trainer = Trainer(dataset)
+trainer = Trainer(dataset, device=device)
 
 # %%
 results = []

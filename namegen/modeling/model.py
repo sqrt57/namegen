@@ -40,7 +40,7 @@ class OneLayerBigramModel(nn.Module):
         return self.w[idx]
 
 
-class ProbabilisticEmbeddingModel(nn.Module):
+class EmbeddingMLP(nn.Module):
     def __init__(self, *, nalphabet: int, context_size: int, nembedding: int, nhidden: int):
         super().__init__()
 
@@ -49,13 +49,9 @@ class ProbabilisticEmbeddingModel(nn.Module):
         self._context_size = context_size
         self.nhidden = nhidden
 
-        self.emb = nn.Parameter(nn.init.kaiming_uniform_(torch.zeros((nalphabet, nembedding)), mode='fan_out', nonlinearity='linear'))
-
-        self.H = nn.Parameter(nn.init.kaiming_uniform_(torch.zeros((nhidden, context_size * nembedding)), mode='fan_in', nonlinearity='tanh'))
-        self.d = nn.Parameter(torch.zeros(nhidden))
-
-        self.U = nn.Parameter(nn.init.kaiming_uniform_(torch.zeros((nalphabet, nhidden)), mode='fan_in', nonlinearity='linear'))
-        self.b = nn.Parameter(torch.zeros(nalphabet))
+        self.emb = nn.Embedding(nalphabet, nembedding)
+        self.linear1 = nn.Linear(context_size * nembedding, nhidden)
+        self.linear2 = nn.Linear(nhidden, nalphabet)
 
     def context_size(self):
         return self._context_size
@@ -65,9 +61,7 @@ class ProbabilisticEmbeddingModel(nn.Module):
         t = x.shape[1]
 
         x = torch.cat([torch.zeros((b, self._context_size-1), dtype=torch.int64, device=x.device), x], 1)
+        f = self.emb(x.unfold(1, self._context_size, 1))
+        h = F.tanh(self.linear1(f.flatten(2)))
+        return self.linear2(h)
 
-        f = self.emb[x.unfold(1, self._context_size, 1)]
-
-        h = torch.tanh(f.flatten(2) @ self.H.T + self.d.reshape(1, -1))
-
-        return h @ self.U.T + self.b.reshape(1, -1)

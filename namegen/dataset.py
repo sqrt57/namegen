@@ -12,11 +12,17 @@ __names__ = [
 ]
 
 def read_uk_towns(data_path):
-    return pd.read_csv(Path(data_path) / 'raw' / 'uk-towns.txt', skipinitialspace=True)
+    return pd.read_csv(Path(data_path) / 'raw' / 'uk-towns.csv', skipinitialspace=True)
 
 def uk_towns_and_counties_list(data_path: str) -> list[str]:
     df = read_uk_towns(data_path)
-    return pd.concat([df['Town'], df['County']]).str.lower().drop_duplicates().sort_values().to_list()
+    lst = pd.concat([df['Town'], df['County']]).str.lower().drop_duplicates().to_list()
+    for sep in ['/', '(', ')']:
+        result = []
+        for s in lst:
+            result.extend(s.split(sep))
+        lst = result
+    return sorted(list(set([s.strip() for s in result if s.strip() != ''])))
 
 def get_char_counts(strings: list[str]) -> Counter:
     return Counter(''.join(strings))
@@ -77,9 +83,8 @@ class InfiniteDataLoader:
 
 @cache
 def uk_towns_and_counties(data_path: str) -> Dataset:
-    df = read_uk_towns(data_path)
-    towns_and_cities = pd.concat([df['Town'], df['County']]).str.lower().drop_duplicates().sort_values()
-    return Dataset(towns_and_cities.to_list())
+    towns_and_counties = uk_towns_and_counties_list(data_path)
+    return Dataset(towns_and_counties)
 
 def empty_dataset(alphabet: str | None = None) -> Dataset:
     return Dataset([], alphabet=alphabet)

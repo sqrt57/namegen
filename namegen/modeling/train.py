@@ -68,10 +68,11 @@ class Trainer:
             
             if nstep % 10 == 0:
                 model.eval()
-                pred = model.forward(features)
-                loss = self.loss_fn(pred.flatten(0, 1), labels.flatten(0, 1))
-                model.train()
-                steps.append(nstep)
-                train_metrics['loss'].append(loss.item())
+                with torch.no_grad():
+                    pred = model.forward(features)
+                    loss = self.loss_fn(pred.flatten(0, 1), labels.flatten(0, 1))
+                    model.train()
+                    steps.append(nstep)
+                    train_metrics['loss'].append(loss.item())
 
         return Result(hyper=hyper, model=model.to("cpu"), steps=steps, train_metrics=train_metrics)

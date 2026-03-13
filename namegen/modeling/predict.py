@@ -29,6 +29,7 @@ def generate(dataset: Dataset, model: nn.Module, N=20, T=1, max_len=100):
 
 def calculate_loss(dataset: Dataset, model: nn.Module):
     model.eval()
-    loss_fn = nn.CrossEntropyLoss(ignore_index=-1)
-    pred = model(dataset.features)
-    return loss_fn(pred.flatten(0, 1), dataset.labels.flatten(0, 1))
+    with torch.no_grad():
+        loss_fn = nn.CrossEntropyLoss(ignore_index=-1)
+        pred = model(dataset.features)
+        return loss_fn(pred.flatten(0, 1), dataset.labels.flatten(0, 1))

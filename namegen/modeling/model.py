@@ -65,3 +65,111 @@ class EmbeddingMLP(nn.Module):
         h = F.tanh(self.linear1(f.flatten(2)))
         return self.linear2(h)
 
+
+class RNN(nn.Module):
+    def __init__(self, *, nalphabet: int, context_size: int, nembedding: int, nstate: int):
+        super().__init__()
+
+        self._nalphabet = nalphabet
+        self._nembedding = nembedding
+        self._nstate = nstate
+        self._context_size = context_size
+
+        self.emb = nn.Embedding(nalphabet, nembedding)
+        self.input = nn.Linear(nembedding + nstate, nstate)
+        self.output = nn.Linear(nstate, nalphabet)
+
+    def context_size(self):
+        return self._context_size
+
+    def forward(self, w):
+        b = w.shape[0]
+        t = w.shape[1]
+        assert w.shape == (b, t)
+        state = torch.zeros(b, self._nstate, device=w.device)
+
+        f = self.emb(w)
+        assert f.shape == (b, t, self._nembedding)
+
+        states = []
+        for i in range(t):
+            x = torch.cat((f[:,i,:], state), dim=1)
+            assert x.shape == (b, self._nembedding + self._nstate)
+
+            state_next = F.tanh(self.input(x))
+            assert state_next.shape == (b, self._nstate)
+
+            states.append(state_next)
+            state = state_next
+
+        states = torch.stack(states, dim=1)        
+        assert states.shape == (b, t, self._nstate)
+
+        y = self.output(states)
+        assert y.shape == (b, t, self._nalphabet)
+        return y
+
+class LSTM(nn.Module):
+    def __init__(self, *, nalphabet: int, context_size: int, nembedding: int, nstate: int):
+        super().__init__()
+
+        self._nalphabet = nalphabet
+        self._nembedding = nembedding
+        self._nstate = nstate
+        self._context_size = context_size
+
+        self.emb = nn.Embedding(self._nalphabet, self._nembedding)
+        self.forget_input = nn.Linear(self._nembedding + 2*self._nstate, 2*self._nstate)
+        self.hidden = nn.Linear(self._nembedding + 2*self._nstate, self._nstate)
+        self.cell_update = nn.Linear(self._nembedding + self._nstate, self._nstate)
+        self.output = nn.Linear(self._nstate, self._nalphabet)
+
+
+    def context_size(self):
+        return self._context_size
+
+    def forward(self, x):
+        b = x.shape[0]
+        t = x.shape[1]
+        assert x.shape == (b, t)
+        cell = torch.zeros(b, self._nstate, device=x.device)
+        hidden = torch.zeros(b, self._nstate, device=x.device)
+
+        f = self.emb(x)
+        assert f.shape == (b, t, self._nembedding)
+
+        states = []
+        for i in range(t):
+            x_slice = f[:,i,:]
+            assert x_slice.shape == (b, self._nembedding)
+
+            gate_args = torch.cat((x_slice, hidden, cell), dim=1)
+            assert gate_args.shape == (b, self._nembedding + 2*self._nstate)
+
+            forget_input_gate = F.sigmoid(self.forget_input(gate_args))
+            assert forget_input_gate.shape == (b, 2*self._nstate)
+
+            cell_update_args = torch.cat((x_slice, hidden), dim=1)
+            assert cell_update_args.shape == (b, self._nembedding + self._nstate)
+
+            cell = forget_input_gate[:,:self._nstate] * cell + forget_input_gate[:,self._nstate:] * F.tanh(self.cell_update(cell_update_args))
+            assert cell.shape == (b, self._nstate)
+
+            new_gate_args = torch.cat((x_slice, hidden, cell), dim=1)
+            assert new_gate_args.shape == (b, self._nembedding + 2*self._nstate)
+
+            hidden_gate = self.hidden(new_gate_args)
+            assert hidden_gate.shape == (b, self._nstate)
+            
+            hidden = hidden_gate * F.tanh(cell)
+            assert hidden.shape == (b, self._nstate)
+
+            states.append(hidden)
+
+        states = torch.stack(states, dim=1)        
+        assert states.shape == (b, t, self._nstate)
+
+        y = self.output(states)
+        assert y.shape == (b, t, self._nalphabet)
+
+        return y

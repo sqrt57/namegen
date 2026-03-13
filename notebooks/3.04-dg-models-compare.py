@@ -31,7 +31,7 @@ import torch.nn.functional as F
 from torch.profiler import profile, ProfilerActivity, record_function
 
 from namegen.dataset import uk_towns_and_counties, InfiniteDataLoader
-from namegen.modeling.model import BigramsModel, OneLayerBigramModel, EmbeddingMLP, EmbeddingMLPOptim
+from namegen.modeling.model import BigramsModel, OneLayerBigramModel, EmbeddingMLP, RNN, LSTM
 from namegen.modeling.train import train_bigram_model, Trainer, Hyper, Result
 from namegen.modeling.predict import generate, calculate_loss
 
@@ -48,10 +48,20 @@ dataset = uk_towns_and_counties('../data')
 optimizer = torch.optim.AdamW
 seed = 489044167
 hyper = [
-    Hyper(name='baseline', context_size=1, batch_size=100, nsteps=10000, lr=1e-3, optimizer=optimizer, seed=seed,
+    Hyper(name='baseline', context_size=1, batch_size=32, nsteps=3000, lr=1e-3, optimizer=optimizer, seed=seed,
          model=OneLayerBigramModel),
-    Hyper(name='MLP', context_size=3, batch_size=100, nsteps=10000, lr=1e-3, optimizer=optimizer, seed=seed,
+    Hyper(name='MLP', context_size=3, batch_size=32, nsteps=3000, lr=1e-3, optimizer=optimizer, seed=seed,
          model=EmbeddingMLP, model_kwargs={ 'nembedding': 2, 'nhidden': 50 }),
+    Hyper(name='MLP big', context_size=8, batch_size=32, nsteps=3000, lr=1e-3, optimizer=optimizer, seed=seed,
+         model=EmbeddingMLP, model_kwargs={ 'nembedding': 8, 'nhidden': 400 }),
+    Hyper(name='RNN', context_size=3, batch_size=128, nsteps=3000, lr=1e-3, optimizer=optimizer, seed=seed,
+         model=RNN, model_kwargs={ 'nembedding': 2, 'nstate': 50 }),
+    Hyper(name='RNN big', context_size=8, batch_size=128, nsteps=3000, lr=1e-3, optimizer=optimizer, seed=seed,
+         model=RNN, model_kwargs={ 'nembedding': 8, 'nstate': 400 }),
+    Hyper(name='LSTM', context_size=3, batch_size=128, nsteps=3000, lr=1e-3, optimizer=optimizer, seed=seed,
+         model=LSTM, model_kwargs={ 'nembedding': 2, 'nstate': 50 }),
+    Hyper(name='LSTM big', context_size=8, batch_size=128, nsteps=3000, lr=1e-3, optimizer=optimizer, seed=seed,
+         model=LSTM, model_kwargs={ 'nembedding': 8, 'nstate': 400 }),
 ]
 
 # %%
@@ -106,17 +116,22 @@ for T in [0.1, 0.5, 0.9, 1.0, 1.1, 1.2, 1.5]:
 df
 
 # %%
-model = results[1].model
-results[1].hyper.name
+model = results[-2].model
+results[-2].hyper.name
 
 # %%
 for name, p in model.named_parameters():
     print(name, p.shape)
 
 # %%
-x = model.emb[:,0].tolist()
-y = model.emb[:,1].tolist()
+model.emb.weight.shape
+
+# %%
+x = model.emb.weight[:,0].tolist()
+y = model.emb.weight[:,1].tolist()
 plt.scatter(x, y)
 
 for i in range(dataset.nalphabet):
     plt.annotate(dataset.itoc[i], (x[i], y[i]))
+
+# %%

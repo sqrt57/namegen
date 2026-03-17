@@ -5,7 +5,7 @@ import torch.nn.functional as F
 __all__ = [
     'BigramsModel',
     'OneLayerBigramModel',
-    'ProbabilisticEmbeddingModel',
+    'EmbeddingMLP',
 ]
 
 class BigramsModel(nn.Module):

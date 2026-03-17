@@ -60,6 +60,9 @@ model_10 = train_bigram_model(dataset, 1)
 model = model_05
 
 # %%
+model_00.N.sum()
+
+# %%
 fig = plt.figure(figsize=(16,16))
 ax = fig.add_axes([0,0,1,1])
 ax.imshow(model_00.N, cmap='Blues')

@@ -5,7 +5,7 @@ from pathlib import Path
 import pandas as pd
 import torch
 
-__names__ = [
+__all__ = [
     'Dataset',
     'uk_towns_and_counties',
     'empty_dataset',
